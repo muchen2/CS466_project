@@ -1,3 +1,6 @@
+'''
+Algorithm from https://www.cs.cmu.edu/~ckingsf/bioinfo-lectures/gibbs.pdf
+'''
 import numpy as np
 import random
 import math
@@ -7,8 +10,10 @@ import string
 nucleotides = list(string.ascii_lowercase[:26])
 
 # arguments: k = length of motif, strings = list of strings
+# option: 'best score' -- choose x_i that best matches profile P
+#		  'random' -- choose x_i randomly according to the profile P's probability distribution
 # return value: best motif indices and substrings of length k
-def gibbs_sampling(k, strings):
+def gibbs_sampling(k, strings, option = 'best_score'):
 	# list of lengths of strings
 	len_strs = [len(string) for string in strings]
 	num_str = len(strings)
@@ -30,14 +35,27 @@ def gibbs_sampling(k, strings):
 			P = profile(profile_in)
 
 			# find the motif in string i that matches the profile best
-			best_score = -math.inf
-			best_idx = 0
-			for j in range(len_strs[i] - k + 1):
-				score = profile_score(P, strings[i][j : j + k], strings)
-				if score > best_score:
-					best_score = score
-					best_idx = j
-			I[i] = best_idx
+			if option == 'best_score':
+				best_score = -math.inf
+				best_idx = 0
+				for j in range(len_strs[i] - k + 1):
+					score = profile_score(P, strings[i][j : j + k], strings)
+					if score > best_score:
+						best_score = score
+						best_idx = j
+				I[i] = best_idx
+
+			# randomly find a motif according to the profile distribution
+			elif option == 'random':
+				scores = np.empty(len_strs[i] - k + 1)
+				for j in range(len_strs[i] - k + 1):
+					scores[j] = profile_score(P, strings[i][j : j + k], strings)
+				# find the probability of each substring being chosen
+				scores = np.exp(scores) # if keeps the log score, negative probability will appear
+				# print(scores)
+				scores = scores / np.sum(scores)
+				I[i] = np.random.choice(np.arange(0, len_strs[i] - k + 1), p = scores)
+
 
 	motifs = [strings[i][I[i] : I[i] + k] for i in range(num_str)]
 	return I, motifs
@@ -94,7 +112,7 @@ def profile_score(profile_mtx, motif, strings):
 
 
 indices, motifs = gibbs_sampling(3, (["aaabbb", "bbbaaabb", \
-	'babaaab', 'ababacaaabac', 'abbbababaaabbbaba']))
+	'babaaab', 'ababacaaabac', 'abbbababaaabbbaba']), 'random')
 
 # indices, motifs = gibbs_sampling(3, ["thequickdog", "browndog", "dogwood"])
 print(motifs)
