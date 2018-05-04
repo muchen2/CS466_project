@@ -83,11 +83,17 @@ class RankMotifModel():
 	def bindingAffinity(self, S, theta):
 		# Convert numeric sequence matrix into matrix of probablity
 		# using PWM theta
+
+		# Normalize PWM matrix
+		ptheta = tf.exp(theta)
+		ntheta = ptheta / tf.reduce_sum(ptheta, axis=0)
+		ntheta = tf.log(ntheta + self.eps)
+
 		seqMatFlatten = tf.reshape(S, [-1])
 		seqShape = tf.shape(S)
 		colIndices = tf.tile(tf.range(0, seqShape[1]), [seqShape[0]])
 		indices = tf.stack((seqMatFlatten, colIndices), axis=1)
-		seqProbs = tf.reshape(tf.gather_nd(theta, indices), seqShape)
+		seqProbs = tf.reshape(tf.gather_nd(ntheta, indices), seqShape)
 
 
 		# Calculate Binding affinity for each of the sequences
@@ -98,10 +104,10 @@ class RankMotifModel():
 		KmersProbs = tf.reshape(KmersProbs4D, (seqShape[0], seqShape[1]-self.K+1))
 
 		# convert log probabilities to true probabilities
-		#KmersProbsNL = tf.exp(KmersProbs)
+		KmersProbsNL = tf.exp(KmersProbs)
 		#self.KmersProbsNL = KmersProbsNL
 
-		tempLogProb = tf.reduce_sum(tf.log1p(-tf.expm1(KmersProbs)))
+		bindAffs = 1 - tf.reduce_prod(1 - KmersProbsNL, axis=1)
 		return bindAffs
 
 
@@ -131,8 +137,8 @@ class RankMotifModel():
 		self.S = tf.placeholder(tf.int32, shape=(batch_size, seqMat.shape[1]))
 		self.X = tf.placeholder(tf.float32, shape=(batch_size, batch_size))
 
-		w_init_val = 1e-5 + np.random.normal(0.5, 1.0/6)
-		theta_init_val = -np.abs(np.random.normal(-5.0, 1.0, size=(alphabet_len, seqMat.shape[1])))
+		w_init_val = 1e-5 + np.abs(np.random.normal(0.5, 1.0/6))
+		theta_init_val = -np.abs(np.random.normal(0.0, 1.0, size=(alphabet_len, seqMat.shape[1])))
 		self.w = tf.Variable(w_init_val, dtype=tf.float32)
 		self.theta = tf.Variable(theta_init_val, dtype=tf.float32)
 
@@ -151,11 +157,12 @@ class RankMotifModel():
 				batch_seqs = seqMat[indices, :]
 				batch_pref = bscores2PrefMat(bscores[indices])
 				#print (batch_pref)
-				print(sess.run(self.KmersProbsNL, feed_dict={self.S: batch_seqs, self.X:batch_pref}))
+				#print(sess.run(self.KmersProbsNL, feed_dict={self.S: batch_seqs, self.X:batch_pref}))
 				sess.run(train, feed_dict={self.S: batch_seqs, self.X:batch_pref})
 				if verbose:
-					negL = sess.run(neg_log_likelihood, feed_dict={self.S: batch_seqs, self.X:batch_pref})
-					print ("Epoch: {0}/{1}, negative log likelihood: {2}".format(i, max_iter, negL))
+					if i % verbose == 0:
+						negL = sess.run(neg_log_likelihood, feed_dict={self.S: batch_seqs, self.X:batch_pref})
+						print ("Epoch: {0}/{1}, negative log likelihood: {2}".format(i, max_iter, negL))
 			self.trainedTheta = sess.run(self.theta)
 			self.trainedW = sess.run(self.w)
 		return self
@@ -197,3 +204,26 @@ class RankMotifModel():
 			res = sess.run(probMat, feed_dict={Seq: seqMat})
 		return res
 
+	"""
+	Output learned position weight matrix
+	"""
+	def pwm_(self):
+		if self.trainedTheta is None:
+			raise Exception("Please fit the model before performing prediction")
+		thetaTF = tf.constant(self.trainedTheta)
+		res = None
+		with tf.Session() as sess:
+			res = sess.run(thetaTF)
+		return res
+
+	"""
+	Output learned weights
+	"""
+	def weight_(self):
+		if self.trainedTheta is None:
+			raise Exception("Please fit the model before performing prediction")
+		wTF = tf.constant(self.trainedW)
+		res = None
+		with tf.Session() as sess:
+			res = sess.run(wTF)
+		return res
