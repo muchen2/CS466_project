@@ -8,6 +8,7 @@ import string
 
 # nucleotides = ['A', 'T', 'C', 'G']
 nucleotides = list(string.ascii_lowercase[:26])
+background_freq = np.zeros(len(nucleotides))
 
 # arguments: k = length of motif, strings = list of strings
 # option: 'best score' -- choose x_i that best matches profile P
@@ -90,16 +91,8 @@ def profile(strings):
 # strings: all sequences
 # return value: a score of target_str
 def profile_score(profile_mtx, motif, strings):
-	background_freq = np.zeros(len(nucleotides))
 	num_str = len(strings)
 
-	# calculate background frequencies
-	for i in range(len(nucleotides)):
-		background_freq[i] = sum([strings[j].count(nucleotides[i]) for j in range(num_str)])
-	# convert to probability
-	background_freq = background_freq / sum(background_freq)
-
-	# print(background_freq)
 	score = 0
 	for i in range(len(motif)):
 		idx = nucleotides.index(motif[i])
@@ -110,9 +103,52 @@ def profile_score(profile_mtx, motif, strings):
 		# print(motif[i], ':', profile_mtx[idx, i] / background_freq[idx], ',', background_freq[idx])
 	return score
 
+# iterations: number of trails to ensure the best motif is found
+def gibbs_sampling_wrapper(iterations, k, strings, option = 'best_score'):
+	print('Running gibbs sampler...')
+	best_diff = np.float(math.inf)
+	num_str = len(strings)
 
-indices, motifs = gibbs_sampling(3, (["aaabbb", "bbbaaabb", \
+	# num_str: number of input strings
+	# motifs: candidate motifs returned by gibbs_sampling
+	def measure_difference(num_str, motifs):
+		diff = 0
+		for i in range(num_str):
+			for j in range(i + 1, num_str):
+				for m in range(k):
+					if motifs[i][m] != motifs[j][m]:
+						diff += 1
+		return diff
+	
+	# pre-compute background probability
+	# calculate background frequencies
+	global background_freq
+	for i in range(len(nucleotides)):
+		background_freq[i] = sum([strings[j].count(nucleotides[i]) for j in range(num_str)])
+	# convert to probability
+	background_freq = background_freq / sum(background_freq)
+
+	for i in range(iterations):
+		print('iteration # ' + str(i))
+		I, motifs = gibbs_sampling(k, strings, option)
+
+		# motifs_arr = np.asarray(motifs)
+		# print('motifs array:', motifs)
+		# print(motifs[0])
+		# print(motifs[0][0])
+		diff = measure_difference(num_str, motifs)
+		# print('diff = ', diff)
+		# print('best_diff = ', best_diff)
+		if diff < best_diff:
+			best_diff = diff
+			best_motif = motifs
+			bestI = I
+	return bestI, best_motif
+
+'''
+# test code
+indices, motifs = gibbs_sampling_wrapper(10, 3, (["aaabbb", "bbbaaabb", \
 	'babaaab', 'ababacaaabac', 'abbbababaaabbbaba']), 'random')
 
-# indices, motifs = gibbs_sampling(3, ["thequickdog", "browndog", "dogwood"])
 print(motifs)
+'''
