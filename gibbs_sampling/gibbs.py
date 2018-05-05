@@ -6,8 +6,8 @@ import random
 import math
 import string
 
-# nucleotides = ['A', 'T', 'C', 'G']
-nucleotides = list(string.ascii_lowercase[:26])
+nucleotides = ['A', 'T', 'C', 'G']
+# nucleotides = list(string.ascii_lowercase[:26])
 background_freq = np.zeros(len(nucleotides))
 
 # arguments: k = length of motif, strings = list of strings

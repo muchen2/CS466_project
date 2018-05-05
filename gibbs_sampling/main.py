@@ -4,6 +4,9 @@ import os
 import numpy as np
 
 data_path = '../../project/pbm'
+num_iter = 10
+num_string = 30
+K = 3
 
 # Load pbm data
 TFName = "TF_40"
@@ -11,12 +14,17 @@ sequences_csv = pd.read_csv(os.path.join(data_path, "sequences.tsv"), delimiter=
 seqs = sequences_csv['seq'].tolist()
 fold_id = sequences_csv['Fold ID'].tolist()
 event_id = sequences_csv['Event ID'].tolist()
+
+seqs = seqs[:num_string]
+fold_id = fold_id[:num_string]
+event_id = event_id[:num_string]
+
 targets = pd.read_csv(os.path.join(data_path, "targets.tsv"), delimiter="\t")
 bscores = targets.as_matrix(columns=[TFName])
 print("Number of sequences: {}".format(len(seqs)))
 print("Number of binding scores: {}".format(len(bscores)))
 # print(seqs)
-I, motifs = gibbs.gibbs_sampling_wrapper(5, 8, seqs, 'random')
+I, motifs = gibbs.gibbs_sampling_wrapper(num_iter, K, seqs, 'random')
 
 print('Creating dataframe...')
 dataframe = []
@@ -25,7 +33,7 @@ for i in range(len(seqs)):
 
 print('Writing to CSV...')
 df = pd.DataFrame(dataframe, columns={'Fold ID','Event ID','motif_index','motif'})
-df.to_csv(os.path.join(data_path, 'gibbs_output.csv'), index=False)
+df.to_csv('random_K=3_30string.csv', index=False)
 '''
 # Remove sequences with mismatched lengths
 from scipy.stats import mode
